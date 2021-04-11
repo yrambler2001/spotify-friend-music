@@ -1,0 +1,14 @@
+{
+  "cSpell.language": "en",
+  "cSpell.words": [
+    "MONGODB",
+    "SPDC",
+    "Spotify",
+    "brotli",
+    "upsert"
+  ],
+  "search.exclude": {
+    "/package-lock.json": true,
+    "/CHANGELOG.md": true
+  }
+}

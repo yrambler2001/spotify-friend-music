@@ -1,0 +1,7 @@
+{
+  "exclude": ["build", "mongo"],
+  "compilerOptions": {
+    "baseUrl": "./src"
+  },
+  "include": ["src"]
+}
