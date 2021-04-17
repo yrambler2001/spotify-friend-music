@@ -9,4 +9,5 @@ export default {
   isProduction: process.env.NODE_ENV !== 'development',
   databaseURL: process.env.MONGODB_URI,
   spDcCookie: process.env.SPDC_COOKIE,
+  port: +process.env.PORT,
 };

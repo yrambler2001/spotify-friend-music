@@ -16,9 +16,13 @@
     "mongo:stop": "mongo admin --port 4001 --eval \"db.getSiblingDB('admin').shutdownServer()\" > /dev/null"
   },
   "dependencies": {
+    "apollo-server-express": "2.23.0",
+    "body-parser": "1.19.0",
+    "cookie-parser": "1.4.5",
     "cors": "2.8.5",
     "cron": "1.8.2",
     "dotenv": "8.2.0",
+    "express": "4.17.1",
     "got": "9.6.0",
     "lodash": "4.17.15",
     "mongoose": "5.11.8",
