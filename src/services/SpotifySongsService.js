@@ -1,8 +1,7 @@
 import config from 'config';
 import got from 'got';
-import { isEqual } from 'lodash';
-import { TokenModel, BuddyLogModel } from 'models';
-import { brotliCompress, brotliDecompress } from 'zlib';
+import { groupBy } from 'lodash';
+import { TokenModel, TimestampModel, SongLogModel, UserModel, AlbumModel, ArtistModel, ContextModel, SongModel } from 'models';
 
 class SpotifySongsService {
   async getNewToken({ spDcCookie }) {
@@ -31,14 +30,67 @@ class SpotifySongsService {
         authorization: `Bearer ${token}`,
       },
     });
-    const prev = await BuddyLogModel.findOne({}, {}, { sort: { _id: -1 } });
-    const prevDecompressed = prev?.data?.buffer && (await new Promise((res) => brotliDecompress(prev.data.buffer, (err, r) => res(String(r)))));
-    if (isEqual(prevDecompressed, buddy.body)) {
-      console.log('same');
-      return;
-    }
-    const buffer = await new Promise((res) => brotliCompress(buddy.body, (err, buf) => res(buf)));
-    await new BuddyLogModel({ data: buffer }).save();
+    const result = JSON.parse(buddy.body);
+    await this.processResult(result);
+  }
+
+  async processResult(result) {
+    const { friends } = result;
+    const opsBackground = [];
+    const promises = [];
+    const songLogOps = [];
+    const callbacks = [];
+    friends.forEach((friend) => {
+      const { backgroundOps, SongLogOp, findSongLog, getTimestampOp } = this.processFriend({ friend });
+      opsBackground.push(...backgroundOps);
+      songLogOps.push(SongLogOp);
+      callbacks.push({ findSongLog, getTimestampOp });
+    });
+    const songLogOpPromise = SongLogModel.bulkWrite(songLogOps);
+    const opsGroupedByModel = groupBy(opsBackground, 'model.modelName');
+    promises.push(songLogOpPromise);
+    promises.push(...Object.values(opsGroupedByModel).map((opsInOneModel) => opsInOneModel[0].model.bulkWrite(opsInOneModel.map((op) => op.op))));
+    await songLogOpPromise;
+    const currentSongLogs = await SongLogModel.find({ $or: callbacks.map((callback) => callback.findSongLog) }).lean();
+    const currentSongLogsMap = {};
+    currentSongLogs.forEach(({ userUri, songUri, _id }) => {
+      currentSongLogsMap[`${userUri}_${songUri}`] = _id;
+    });
+    promises.push(TimestampModel.bulkWrite(callbacks.map((callback) => callback.getTimestampOp(currentSongLogsMap))));
+    await Promise.all(promises);
+  }
+
+  processFriend({ friend }) {
+    const { timestamp, track, user } = friend;
+    const { album, artist, context, imageUrl: songImageUrl, name: songName, uri: songUri } = track;
+    const { imageUrl: userImageUrl, name: userName, uri: userUri } = user;
+    const { name: albumName, uri: albumUri } = album;
+    const { name: artistName, uri: artistUri } = artist;
+    const { name: contextName, uri: contextUri } = context;
+    const AlbumOp = { updateOne: { filter: { _id: albumUri }, update: { $setOnInsert: { _id: albumUri }, $set: { name: albumName } }, upsert: true } };
+    const ArtistOp = { updateOne: { filter: { _id: artistUri }, update: { $setOnInsert: { _id: artistUri }, $set: { name: artistName } }, upsert: true } };
+    const ContextOp = { updateOne: { filter: { _id: contextUri }, update: { $setOnInsert: { _id: contextUri }, $set: { name: contextName } }, upsert: true } };
+    const UserOp = { updateOne: { filter: { _id: userUri }, update: { $setOnInsert: { _id: userUri }, $set: { name: userName, imageUrl: userImageUrl } }, upsert: true } };
+    const SongOp = { updateOne: { filter: { _id: songUri }, update: { $setOnInsert: { _id: songUri }, $set: { name: songName, imageUrl: songImageUrl, albumUri, artistUri, contextUri } }, upsert: true } };
+    const SongLogOp = { updateOne: { filter: { songUri, userUri }, update: { $set: { songUri, userUri } }, upsert: true } };
+    const findSongLog = { songUri, userUri };
+    const getTimestampOp = (songLogs) => {
+      const songLogId = songLogs[`${userUri}_${songUri}`];
+      return { updateOne: { filter: { songLogId, timestamp: new Date(timestamp) }, update: { $set: { songLogId, timestamp: new Date(timestamp) } }, upsert: true } };
+    };
+    const backgroundOps = [
+      { model: AlbumModel, op: AlbumOp },
+      { model: ArtistModel, op: ArtistOp },
+      { model: ContextModel, op: ContextOp },
+      { model: UserModel, op: UserOp },
+      { model: SongModel, op: SongOp },
+    ];
+    return {
+      backgroundOps,
+      SongLogOp,
+      findSongLog,
+      getTimestampOp,
+    };
   }
 }
 export default new SpotifySongsService();

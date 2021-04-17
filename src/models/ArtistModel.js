@@ -4,11 +4,12 @@ const { Schema, model } = mongoose;
 
 const schema = new Schema(
   {
-    data: { type: Buffer },
+    _id: String,
+    name: String,
   },
   { timestamps: true },
 );
 
-const Model = model('BuddyLog', schema);
+const Model = model('Artist', schema);
 
 export default Model;

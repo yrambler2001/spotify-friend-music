@@ -10,7 +10,10 @@
     "build-server": "babel -d ./build ./src -s",
     "clean": "rm -rf build && mkdir build",
     "lint": "eslint ./src",
-    "start": "nodemon"
+    "start": "nodemon",
+    "mongo:start": "mongod --config ./mongod.conf --fork",
+    "mongo:start-no-fork": "mongod --config ./mongod.conf",
+    "mongo:stop": "mongo admin --port 4001 --eval \"db.getSiblingDB('admin').shutdownServer()\" > /dev/null"
   },
   "dependencies": {
     "cors": "2.8.5",
