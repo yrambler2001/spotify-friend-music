@@ -14,6 +14,9 @@ const job = new CronJob({
 });
 
 async function startServer() {
+  process.on('unhandledRejection', (up) => {
+    throw up;
+  });
   job.start();
 
   const app = express();
