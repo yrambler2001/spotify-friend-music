@@ -27,22 +27,28 @@ class SpotifySongsService {
 
     const [buddy, meCurrentlyListening, me] = await Promise.all(
       ['https://spclient.wg.spotify.com/presence-view/v1/buddylist', 'https://api.spotify.com/v1/me/player/currently-playing', 'https://api.spotify.com/v1/me'].map((url) =>
-        (async () => JSON.parse((await got(url, { headers: { authorization: `Bearer ${token}` } })).body))(),
+        (async () => {
+          const { body } = await got(url, { headers: { authorization: `Bearer ${token}` } });
+          return body ? JSON.parse(body) : null;
+        })(),
       ),
     );
 
-    const transformedMe = {
-      timestamp: meCurrentlyListening?.timestamp,
-      track: {
-        ...meCurrentlyListening?.item,
-        artist: meCurrentlyListening?.item?.artists?.[0],
-        context: meCurrentlyListening?.context || meCurrentlyListening?.item?.album,
-        imageUrl: sortBy(meCurrentlyListening?.item?.album?.images, 'height').reverse()[0]?.url,
-      },
-      user: { imageUrl: sortBy(me?.images, 'height').reverse()[0]?.url, name: me?.display_name, uri: me?.uri },
-    };
     const { friends } = buddy;
-    const friendsWithMe = [...friends, transformedMe];
+    const friendsWithMe = [...friends];
+    if (meCurrentlyListening) {
+      const transformedMe = {
+        timestamp: meCurrentlyListening?.timestamp,
+        track: {
+          ...meCurrentlyListening?.item,
+          artist: meCurrentlyListening?.item?.artists?.[0],
+          context: meCurrentlyListening?.context || meCurrentlyListening?.item?.album,
+          imageUrl: sortBy(meCurrentlyListening?.item?.album?.images, 'height').reverse()[0]?.url,
+        },
+        user: { imageUrl: sortBy(me?.images, 'height').reverse()[0]?.url, name: me?.display_name, uri: me?.uri },
+      };
+      friendsWithMe.push(transformedMe);
+    }
     await this.processResult(friendsWithMe);
   }
 
