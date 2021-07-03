@@ -1,6 +1,6 @@
 import config from 'config';
 import got from 'got';
-import { groupBy } from 'lodash';
+import { groupBy, sortBy } from 'lodash';
 import { TokenModel, TimestampModel, SongLogModel, UserModel, AlbumModel, ArtistModel, ContextModel, SongModel } from 'models';
 
 class SpotifySongsService {
@@ -25,17 +25,23 @@ class SpotifySongsService {
       await TokenModel.updateOne({}, { token, expires }, { upsert: true });
     }
 
-    const buddy = await got('https://spclient.wg.spotify.com/presence-view/v1/buddylist', {
-      headers: {
-        authorization: `Bearer ${token}`,
-      },
-    });
-    const result = JSON.parse(buddy.body);
-    await this.processResult(result);
+    const [buddy, meCurrentlyListening, me] = await Promise.all(
+      ['https://spclient.wg.spotify.com/presence-view/v1/buddylist', 'https://api.spotify.com/v1/me/player/currently-playing', 'https://api.spotify.com/v1/me'].map((url) =>
+        (async () => JSON.parse((await got(url, { headers: { authorization: `Bearer ${token}` } })).body))(),
+      ),
+    );
+
+    const transformedMe = {
+      timestamp: meCurrentlyListening?.timestamp,
+      track: { ...meCurrentlyListening?.item, artist: meCurrentlyListening?.item?.artists?.[0], context: meCurrentlyListening?.context, imageUrl: sortBy(meCurrentlyListening?.item?.album?.images, 'height').reverse()[0]?.url },
+      user: { imageUrl: sortBy(me?.images, 'height').reverse()[0]?.url, name: me?.display_name, uri: me?.uri },
+    };
+    const { friends } = buddy;
+    const friendsWithMe = [...friends, transformedMe];
+    await this.processResult(friendsWithMe);
   }
 
-  async processResult(result) {
-    const { friends } = result;
+  async processResult(friends) {
     const opsBackground = [];
     const promises = [];
     const songLogOps = [];
