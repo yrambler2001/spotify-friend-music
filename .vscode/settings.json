@@ -5,6 +5,7 @@
     "SPDC",
     "Spotify",
     "brotli",
+    "songlogs",
     "upsert"
   ],
   "search.exclude": {

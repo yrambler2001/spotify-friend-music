@@ -1,5 +1,6 @@
 import { makeExecutableSchema, gql } from 'apollo-server-express';
 import merge from 'lodash/merge';
+import { DateTimeResolver, DateTimeTypeDefinition } from 'graphql-scalars';
 import { SpotifyResolvers, SpotifySchema } from './modules';
 
 const Common = gql`
@@ -13,8 +14,8 @@ const Common = gql`
 `;
 
 const schema = makeExecutableSchema({
-  typeDefs: [Common, SpotifySchema],
-  resolvers: merge({}, SpotifyResolvers),
+  typeDefs: [Common, DateTimeTypeDefinition, SpotifySchema],
+  resolvers: merge({}, { DateTime: DateTimeResolver }, SpotifyResolvers),
   schemaDirectives: {},
 });
 
