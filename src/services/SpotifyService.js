@@ -97,7 +97,7 @@ class SpotifyService {
         ].filter(Boolean),
       )
       .toArray();
-    const value = songs.map((s) => ({ ...s, song: { ...s, artistName: s.artistName } }));
+    const value = songs.map((s) => ({ ...s, _id: `${s._id}_${endDate}_${startDate}`, song: { ...s, artistName: s.artistName } }));
     // debugger;
     return value;
   }
